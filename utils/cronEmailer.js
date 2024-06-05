@@ -38,21 +38,22 @@ async function cronMailer() {
     console.log("Cron Email function calling for every "+ process.env.PASSWORD_REQUEST + " minutes");
     const allUsers = await User.find();
     allUsers.map(async(userInfo) => {
-        const { userId, emailId, name} = userInfo;
+        const { _id: userId, emailId, username} = userInfo;
         const lastSent = await passwordLimit(userId);
         if(lastSent){
             const emailTemplate = await EmailTemplates.findOne({ name: 'Reset Password'}).lean().exec();
-            var password = Math.random().toString(36).slice(-8);
+            let password;
+            password = Math.random().toString(36).slice(-8);
             let message = emailTemplate.Message;
-            message = message.replace('#USER#', name);
+            message = message.replace('#USER#', username);
             message = message.replace('#PASSWORD#', password);
             message = message.replace('#SENDER#', process.env.EMAILFROM);
             const data = { to: emailId, subject: emailTemplate.Subject, message:message };
             await sendEmail(data);
-            const hashedPwd = await bcrypt.hash(password, 10);
-            await User.findByIdAndUpdate(userId,{'password':hashedPwd},{new: true});
+            let hashedPwd;
+            hashedPwd = await bcrypt.hash(password, 10);
+            const results  = await User.findOneAndUpdate(userId,{$set:{'password':hashedPwd}},{new:true}); 
             await activity.create({userId: userId, type: 'Passwords sent', decription: 'New password sent'});
-            //console.log(data);
         }
     })
 }
